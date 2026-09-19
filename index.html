@@ -108,6 +108,21 @@
     padding:9px 12px; width:100%; outline:none;
   }
   .site-cible-wrap input:focus{border-color:var(--live);}
+  .site-cible-wrap input{margin-bottom:12px;}
+  .site-cible-wrap input:last-child{margin-bottom:0;}
+  .site-cible-label{
+    font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:.05em;
+    color:var(--text-lo); opacity:.7; text-transform:uppercase; margin:0 0 4px 2px;
+  }
+
+  .quick-link-btn{
+    width:100%; margin-top:10px;
+    background:var(--bg-card); color:var(--text-hi); border:1px solid var(--hairline);
+    border-radius:12px; font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:14px;
+    padding:12px; cursor:pointer; transition:border-color .15s, filter .15s;
+  }
+  .quick-link-btn:hover{border-color:var(--live);}
+  .quick-link-btn:active{transform:scale(.98);}
 
   .error-msg{
     font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--danger);
@@ -217,10 +232,14 @@
     </div>
 
     <button type="submit" class="launch-btn" id="launch-btn-text">🚀 Lancer la comparaison</button>
+    <button type="button" class="quick-link-btn" id="meteo-famille-btn-text">🏠 Ouvrir meteo-famille</button>
 
-    <button type="button" class="site-cible-toggle" id="site-cible-toggle">⚙ Site cible</button>
+    <button type="button" class="site-cible-toggle" id="site-cible-toggle">⚙ Sites cibles</button>
     <div class="site-cible-wrap" id="site-cible-wrap">
+      <div class="site-cible-label" id="site-cible-label-1">Comparateur de températures</div>
       <input type="text" id="site-cible-input" value="https://fef73.github.io/comparateur-temperatures/">
+      <div class="site-cible-label" id="site-cible-label-2">Meteo-famille</div>
+      <input type="text" id="meteo-famille-site-input" value="https://fef73.github.io/meteo-famille/">
     </div>
   </form>
 
@@ -250,7 +269,10 @@ const TRANSLATIONS = {
     altPlaceholder: "Altitude (m)",
     errorMsg: "Saisis au moins une ville.",
     launchBtn: "🚀 Lancer la comparaison",
-    siteCibleToggle: "⚙ Site cible",
+    meteoFamilleBtn: "🏠 Ouvrir meteo-famille",
+    siteCibleToggle: "⚙ Sites cibles",
+    siteCibleLabel1: "Comparateur de températures",
+    siteCibleLabel2: "Meteo-famille",
     linkPreviewTitle: "Lien généré",
     copyBtn: "🔗 Copier",
     copiedBtn: "✓ Copié",
@@ -272,7 +294,10 @@ const TRANSLATIONS = {
     altPlaceholder: "Altitude (m)",
     errorMsg: "Enter at least one city.",
     launchBtn: "🚀 Launch comparison",
-    siteCibleToggle: "⚙ Target site",
+    meteoFamilleBtn: "🏠 Open meteo-famille",
+    siteCibleToggle: "⚙ Target sites",
+    siteCibleLabel1: "Temperature comparison",
+    siteCibleLabel2: "Meteo-famille",
     linkPreviewTitle: "Generated link",
     copyBtn: "🔗 Copy",
     copiedBtn: "✓ Copied",
@@ -297,12 +322,16 @@ function t(key, ...args){
 
 const STORAGE_KEY = "lanceur-api-villes-v1";
 const SITE_KEY = "lanceur-api-site-v1";
+const METEO_FAMILLE_SITE_KEY = "lanceur-api-meteo-famille-site-v1";
 const NB_VILLES = 5;
 const DEFAULT_SITE = "https://fef73.github.io/comparateur-temperatures/";
+const DEFAULT_METEO_FAMILLE_SITE = "https://fef73.github.io/meteo-famille/";
 
 const rowsEl = document.getElementById("villes-rows");
 const errorEl = document.getElementById("error-msg");
 const siteInput = document.getElementById("site-cible-input");
+const meteoFamilleSiteInput = document.getElementById("meteo-famille-site-input");
+const meteoFamilleBtn = document.getElementById("meteo-famille-btn-text");
 const siteToggle = document.getElementById("site-cible-toggle");
 const siteWrap = document.getElementById("site-cible-wrap");
 const linkPanel = document.getElementById("link-preview-panel");
@@ -322,12 +351,12 @@ function saveEntries(entries){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); }catch(e){}
 }
 
-function loadSite(){
-  try{ return localStorage.getItem(SITE_KEY) || DEFAULT_SITE; }catch(e){ return DEFAULT_SITE; }
+function loadSiteUrl(key, fallback){
+  try{ return localStorage.getItem(key) || fallback; }catch(e){ return fallback; }
 }
 
-function saveSite(url){
-  try{ localStorage.setItem(SITE_KEY, url); }catch(e){}
+function saveSiteUrl(key, url){
+  try{ localStorage.setItem(key, url); }catch(e){}
 }
 
 function escapeHtml(s){
@@ -353,7 +382,8 @@ function buildRows(){
 }
 buildRows();
 
-siteInput.value = loadSite();
+siteInput.value = loadSiteUrl(SITE_KEY, DEFAULT_SITE);
+meteoFamilleSiteInput.value = loadSiteUrl(METEO_FAMILLE_SITE_KEY, DEFAULT_METEO_FAMILLE_SITE);
 
 siteToggle.addEventListener("click", () => {
   siteWrap.classList.toggle("open");
@@ -402,7 +432,7 @@ document.getElementById("launch-form").addEventListener("submit", (e) => {
 
   saveEntries(entries);
   const siteUrl = normalizeSiteUrl(siteInput.value);
-  saveSite(siteUrl);
+  saveSiteUrl(SITE_KEY, siteUrl);
 
   const url = new URL(siteUrl);
   url.searchParams.set("ville", villeParam);
@@ -411,6 +441,12 @@ document.getElementById("launch-form").addEventListener("submit", (e) => {
   linkPanel.classList.add("show");
 
   window.location.href = url.toString();
+});
+
+meteoFamilleBtn.addEventListener("click", () => {
+  const siteUrl = normalizeSiteUrl(meteoFamilleSiteInput.value);
+  saveSiteUrl(METEO_FAMILLE_SITE_KEY, siteUrl);
+  window.location.href = siteUrl;
 });
 
 copyBtn.addEventListener("click", () => {
@@ -434,7 +470,10 @@ function applyStaticTranslations(){
   document.getElementById("subtitle-text").textContent = t("subtitle");
   document.getElementById("panel-title-text").textContent = t("panelTitle");
   document.getElementById("launch-btn-text").textContent = t("launchBtn");
+  document.getElementById("meteo-famille-btn-text").textContent = t("meteoFamilleBtn");
   document.getElementById("site-cible-toggle").textContent = t("siteCibleToggle");
+  document.getElementById("site-cible-label-1").textContent = t("siteCibleLabel1");
+  document.getElementById("site-cible-label-2").textContent = t("siteCibleLabel2");
   document.getElementById("link-preview-title").textContent = t("linkPreviewTitle");
   document.getElementById("copy-link-btn").textContent = t("copyBtn");
   document.getElementById("error-msg").textContent = t("errorMsg");
