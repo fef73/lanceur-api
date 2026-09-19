@@ -143,10 +143,59 @@
     font-family:'IBM Plex Mono', monospace; font-size:11px;
     color:var(--text-lo); text-align:center; line-height:1.7; opacity:.7;
   }
+
+  #app-content{display:none;}
+  #gate-overlay{
+    position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center;
+    background:var(--bg); padding:20px;
+  }
+  .gate-box{
+    max-width:340px; width:100%; background:var(--bg-panel); border:1px solid var(--hairline);
+    border-radius:16px; padding:28px 24px; text-align:center;
+  }
+  .gate-title{
+    font-family:'Fraunces', serif; font-weight:600; font-style:italic;
+    font-size:22px; margin:0 0 8px;
+  }
+  .gate-sub{color:var(--text-lo); font-size:13px; margin-bottom:18px; line-height:1.5;}
+  .gate-box input{
+    width:100%; background:var(--bg-input); border:1px solid var(--hairline); border-radius:10px;
+    color:var(--text-hi); font-family:'IBM Plex Mono', monospace; font-size:16px;
+    letter-spacing:.05em; padding:12px 14px; outline:none; text-align:center;
+    transition:border-color .15s;
+  }
+  .gate-box input:focus{border-color:var(--live);}
+  .gate-box input.shake{border-color:var(--danger); animation:shake .3s;}
+  @keyframes shake{
+    25%{transform:translateX(-5px);} 75%{transform:translateX(5px);}
+  }
+  .gate-btn{
+    width:100%; margin-top:12px;
+    background:var(--live); color:#0b1622; border:none; border-radius:10px;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:14px;
+    padding:12px; cursor:pointer; transition:filter .15s, transform .1s;
+  }
+  .gate-btn:hover{filter:brightness(1.08);}
+  .gate-btn:active{transform:scale(.98);}
+  .gate-error{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--danger);
+    margin-top:10px; min-height:16px;
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
+
+<div id="gate-overlay">
+  <div class="gate-box">
+    <div class="gate-title" id="gate-title-text">Accès protégé</div>
+    <div class="gate-sub" id="gate-sub-text">Ce site est réservé — entre le code d'accès.</div>
+    <input type="password" id="gate-input" inputmode="text" autocomplete="off" placeholder="Code d'accès">
+    <button type="button" class="gate-btn" id="gate-btn-text">🔓 Entrer</button>
+    <div class="gate-error" id="gate-error"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app-content">
 
   <header>
     <div class="header-top-row">
@@ -208,6 +257,11 @@ const TRANSLATIONS = {
     footerLine1: (base) => `Génère une URL <code>?ville=...</code> pour ${base} · rien n'est envoyé nulle part, tout se passe dans ton navigateur`,
     footerLine2: "Les villes saisies sont mémorisées sur cet appareil pour la prochaine fois",
     footerSiteName: "le comparateur de températures",
+    gateTitle: "Accès protégé",
+    gateSub: "Ce site est réservé — entre le code d'accès.",
+    gatePlaceholder: "Code d'accès",
+    gateBtn: "🔓 Entrer",
+    gateError: "Code incorrect.",
   },
   en: {
     eyebrow: "launcher — quick access",
@@ -225,6 +279,11 @@ const TRANSLATIONS = {
     footerLine1: (base) => `Generates a <code>?ville=...</code> URL for ${base} · nothing is sent anywhere, everything happens in your browser`,
     footerLine2: "The cities you enter are remembered on this device for next time",
     footerSiteName: "the temperature comparison site",
+    gateTitle: "Protected access",
+    gateSub: "This site is restricted — enter the access code.",
+    gatePlaceholder: "Access code",
+    gateBtn: "🔓 Enter",
+    gateError: "Incorrect code.",
   },
 };
 
@@ -386,6 +445,10 @@ function applyStaticTranslations(){
   const altInputs = rowsEl.querySelectorAll(".alt-input");
   villeInputs.forEach((input, i) => { input.placeholder = t("villePlaceholder", i); });
   altInputs.forEach((input) => { input.placeholder = t("altPlaceholder"); });
+  document.getElementById("gate-title-text").textContent = t("gateTitle");
+  document.getElementById("gate-sub-text").textContent = t("gateSub");
+  document.getElementById("gate-input").placeholder = t("gatePlaceholder");
+  document.getElementById("gate-btn-text").textContent = t("gateBtn");
 }
 
 function setLang(newLang){
@@ -402,10 +465,62 @@ document.querySelectorAll(".lang-btn[data-lang]").forEach(btn => {
   btn.addEventListener("click", () => setLang(btn.dataset.lang));
 });
 
+// ---- Verrou d'accès (protection légère, pas une vraie sécurité) ----
+// Hash SHA-256 du code d'accès attendu, pour ne pas le stocker en clair dans le code source.
+const GATE_HASH = "edc46b78ccd7510eba9a6981fc48f495be329e07b14663e5c0114b8bd062efa2";
+const GATE_KEY = "lanceur-api-unlocked-v1";
+
+async function sha256Hex(text){
+  const data = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function showApp(){
+  document.getElementById("gate-overlay").style.display = "none";
+  document.getElementById("app-content").style.display = "block";
+}
+
+const gateInput = document.getElementById("gate-input");
+const gateBtn = document.getElementById("gate-btn-text");
+const gateError = document.getElementById("gate-error");
+
+async function tryUnlock(){
+  const value = gateInput.value.trim();
+  if(!value) return;
+  const hash = await sha256Hex(value);
+  if(hash === GATE_HASH){
+    try{ localStorage.setItem(GATE_KEY, "1"); }catch(e){}
+    gateError.textContent = "";
+    showApp();
+  }else{
+    gateError.textContent = t("gateError");
+    gateInput.classList.remove("shake");
+    void gateInput.offsetWidth; // relance l'animation
+    gateInput.classList.add("shake");
+    gateInput.value = "";
+    gateInput.focus();
+  }
+}
+
+gateBtn.addEventListener("click", tryUnlock);
+gateInput.addEventListener("keydown", (e) => {
+  if(e.key === "Enter") tryUnlock();
+});
+
 (function init(){
   document.documentElement.lang = lang;
   document.querySelectorAll(".lang-btn[data-lang]").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
   applyStaticTranslations();
+
+  let alreadyUnlocked = false;
+  try{ alreadyUnlocked = localStorage.getItem(GATE_KEY) === "1"; }catch(e){}
+
+  if(alreadyUnlocked){
+    showApp();
+  }else{
+    gateInput.focus();
+  }
 })();
 </script>
 </body>
