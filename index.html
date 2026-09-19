@@ -36,6 +36,21 @@
     border-bottom:1px solid var(--hairline);
     padding-bottom:22px; margin-bottom:24px;
   }
+  .header-top-row{
+    display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .header-top-row .eyebrow{margin-bottom:0;}
+  .lang-switch{
+    display:flex; gap:4px; background:var(--bg-input); border:1px solid var(--hairline);
+    border-radius:8px; padding:3px;
+  }
+  .lang-btn{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:600; letter-spacing:.04em;
+    color:var(--text-lo); background:transparent; border:none; border-radius:6px;
+    padding:5px 10px; cursor:pointer; transition:background .15s, color .15s;
+  }
+  .lang-btn:hover{color:var(--text-hi);}
+  .lang-btn.active{background:var(--live); color:#0b1622;}
   .eyebrow{
     font-family:'IBM Plex Mono', monospace;
     font-size:12px; letter-spacing:.14em; text-transform:uppercase;
@@ -50,7 +65,7 @@
   }
   h1{
     font-family:'Fraunces', serif; font-weight:600; font-style:italic;
-    font-size:clamp(26px,4.5vw,34px); margin:0 0 10px; line-height:1.15;
+    font-size:clamp(26px,4.5vw,34px); margin:14px 0 10px; line-height:1.15;
   }
   .subtitle{color:var(--text-lo); font-size:14px; line-height:1.5; max-width:56ch;}
 
@@ -62,11 +77,6 @@
     font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:.1em;
     text-transform:uppercase; color:var(--text-lo); margin:0 0 16px;
     display:flex; align-items:center; gap:8px;
-  }
-  .panel-title .n{
-    display:inline-flex; align-items:center; justify-content:center;
-    width:18px; height:18px; border-radius:50%; background:var(--bg-input);
-    border:1px solid var(--hairline); font-size:10px; color:var(--text-hi); flex:none;
   }
 
   .ville-row{
@@ -82,11 +92,6 @@
   .ville-row input::placeholder{color:var(--text-lo); opacity:.7;}
   .ville-row input.alt-input{
     font-family:'IBM Plex Mono', monospace; font-size:13px;
-  }
-
-  .row-label{
-    font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--text-lo);
-    margin:2px 0 6px 2px; display:flex; justify-content:space-between;
   }
 
   .site-cible-toggle{
@@ -138,26 +143,31 @@
     font-family:'IBM Plex Mono', monospace; font-size:11px;
     color:var(--text-lo); text-align:center; line-height:1.7; opacity:.7;
   }
-  footer a{color:var(--text-lo);}
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <header>
-    <div class="eyebrow"><span class="pulse"></span>lanceur — accès rapide</div>
-    <h1>Comparer jusqu'à 5 villes</h1>
-    <div class="subtitle">Saisis les villes (et une altitude optionnelle, en mètres, pour un point précis comme une station de ski), puis lance directement la comparaison — sans manipuler d'URL.</div>
+    <div class="header-top-row">
+      <div class="eyebrow"><span class="pulse"></span><span id="eyebrow-text">lanceur — accès rapide</span></div>
+      <div class="lang-switch">
+        <button class="lang-btn" data-lang="fr">FR</button>
+        <button class="lang-btn" data-lang="en">EN</button>
+      </div>
+    </div>
+    <h1 id="title-text">Comparer jusqu'à 5 villes</h1>
+    <div class="subtitle" id="subtitle-text">Saisis les villes (et une altitude optionnelle, en mètres, pour un point précis comme une station de ski), puis lance directement la comparaison — sans manipuler d'URL.</div>
   </header>
 
   <form id="launch-form" autocomplete="off">
     <div class="panel">
-      <div class="panel-title">Villes à comparer</div>
+      <div class="panel-title" id="panel-title-text">Villes à comparer</div>
       <div id="villes-rows"></div>
       <div class="error-msg" id="error-msg">Saisis au moins une ville.</div>
     </div>
 
-    <button type="submit" class="launch-btn">🚀 Lancer la comparaison</button>
+    <button type="submit" class="launch-btn" id="launch-btn-text">🚀 Lancer la comparaison</button>
 
     <button type="button" class="site-cible-toggle" id="site-cible-toggle">⚙ Site cible</button>
     <div class="site-cible-wrap" id="site-cible-wrap">
@@ -166,14 +176,14 @@
   </form>
 
   <div class="panel link-preview-panel" id="link-preview-panel">
-    <div class="panel-title">Lien généré</div>
+    <div class="panel-title" id="link-preview-title">Lien généré</div>
     <div class="link-preview-row">
       <input type="text" id="link-preview-input" readonly>
       <button type="button" class="copy-btn" id="copy-link-btn">🔗 Copier</button>
     </div>
   </div>
 
-  <footer>
+  <footer id="footer-text">
     Génère une URL <code>?ville=...</code> pour le comparateur de températures · rien n'est envoyé nulle part, tout se passe dans ton navigateur<br>
     Les villes saisies sont mémorisées sur cet appareil pour la prochaine fois
   </footer>
@@ -181,6 +191,51 @@
 </div>
 
 <script>
+const TRANSLATIONS = {
+  fr: {
+    eyebrow: "lanceur — accès rapide",
+    title: "Comparer jusqu'à 5 villes",
+    subtitle: "Saisis les villes (et une altitude optionnelle, en mètres, pour un point précis comme une station de ski), puis lance directement la comparaison — sans manipuler d'URL.",
+    panelTitle: "Villes à comparer",
+    villePlaceholder: (i) => i === 0 ? "Ville 1 (ex : Narbonne)" : `Ville ${i + 1}`,
+    altPlaceholder: "Altitude (m)",
+    errorMsg: "Saisis au moins une ville.",
+    launchBtn: "🚀 Lancer la comparaison",
+    siteCibleToggle: "⚙ Site cible",
+    linkPreviewTitle: "Lien généré",
+    copyBtn: "🔗 Copier",
+    copiedBtn: "✓ Copié",
+    footerLine1: (base) => `Génère une URL <code>?ville=...</code> pour ${base} · rien n'est envoyé nulle part, tout se passe dans ton navigateur`,
+    footerLine2: "Les villes saisies sont mémorisées sur cet appareil pour la prochaine fois",
+    footerSiteName: "le comparateur de températures",
+  },
+  en: {
+    eyebrow: "launcher — quick access",
+    title: "Compare up to 5 cities",
+    subtitle: "Enter the cities (and an optional altitude in meters, for a precise spot like a ski resort), then launch the comparison directly — no URL to type.",
+    panelTitle: "Cities to compare",
+    villePlaceholder: (i) => i === 0 ? "City 1 (e.g. Narbonne)" : `City ${i + 1}`,
+    altPlaceholder: "Altitude (m)",
+    errorMsg: "Enter at least one city.",
+    launchBtn: "🚀 Launch comparison",
+    siteCibleToggle: "⚙ Target site",
+    linkPreviewTitle: "Generated link",
+    copyBtn: "🔗 Copy",
+    copiedBtn: "✓ Copied",
+    footerLine1: (base) => `Generates a <code>?ville=...</code> URL for ${base} · nothing is sent anywhere, everything happens in your browser`,
+    footerLine2: "The cities you enter are remembered on this device for next time",
+    footerSiteName: "the temperature comparison site",
+  },
+};
+
+let lang = localStorage.getItem("lanceur-api-lang") || (navigator.language && navigator.language.startsWith("en") ? "en" : "fr");
+
+function t(key, ...args){
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS.fr;
+  const entry = dict[key] !== undefined ? dict[key] : TRANSLATIONS.fr[key];
+  return typeof entry === "function" ? entry(...args) : entry;
+}
+
 const STORAGE_KEY = "lanceur-api-villes-v1";
 const SITE_KEY = "lanceur-api-site-v1";
 const NB_VILLES = 5;
@@ -216,24 +271,28 @@ function saveSite(url){
   try{ localStorage.setItem(SITE_KEY, url); }catch(e){}
 }
 
-// ---- Construction des 5 lignes de saisie ----
-const saved = loadSaved();
-for(let i = 0; i < NB_VILLES; i++){
-  const entry = saved[i] || { ville: "", alt: "" };
-  const row = document.createElement("div");
-  row.className = "ville-row";
-  row.innerHTML = `
-    <input type="text" class="ville-input" placeholder="Ville ${i + 1}${i === 0 ? " (ex : Narbonne)" : ""}" value="${escapeHtml(entry.ville)}">
-    <input type="number" class="alt-input" placeholder="Altitude (m)" value="${escapeHtml(entry.alt)}">
-  `;
-  rowsEl.appendChild(row);
-}
-
 function escapeHtml(s){
   return String(s || "").replace(/[&<>"']/g, c => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[c]));
 }
+
+// ---- Construction des 5 lignes de saisie ----
+const saved = loadSaved();
+function buildRows(){
+  rowsEl.innerHTML = "";
+  for(let i = 0; i < NB_VILLES; i++){
+    const entry = saved[i] || { ville: "", alt: "" };
+    const row = document.createElement("div");
+    row.className = "ville-row";
+    row.innerHTML = `
+      <input type="text" class="ville-input" placeholder="${escapeHtml(t("villePlaceholder", i))}" value="${escapeHtml(entry.ville)}">
+      <input type="number" class="alt-input" placeholder="${escapeHtml(t("altPlaceholder"))}" value="${escapeHtml(entry.alt)}">
+    `;
+    rowsEl.appendChild(row);
+  }
+}
+buildRows();
 
 siteInput.value = loadSite();
 
@@ -299,7 +358,7 @@ copyBtn.addEventListener("click", () => {
   linkInput.select();
   const showCopied = () => {
     const original = copyBtn.textContent;
-    copyBtn.textContent = "✓ Copié";
+    copyBtn.textContent = t("copiedBtn");
     setTimeout(() => { copyBtn.textContent = original; }, 1600);
   };
   if(navigator.clipboard && navigator.clipboard.writeText){
@@ -308,6 +367,46 @@ copyBtn.addEventListener("click", () => {
     try{ document.execCommand("copy"); showCopied(); }catch(e){}
   }
 });
+
+// ---- Traductions statiques ----
+function applyStaticTranslations(){
+  document.getElementById("eyebrow-text").textContent = t("eyebrow");
+  document.getElementById("title-text").textContent = t("title");
+  document.getElementById("subtitle-text").textContent = t("subtitle");
+  document.getElementById("panel-title-text").textContent = t("panelTitle");
+  document.getElementById("launch-btn-text").textContent = t("launchBtn");
+  document.getElementById("site-cible-toggle").textContent = t("siteCibleToggle");
+  document.getElementById("link-preview-title").textContent = t("linkPreviewTitle");
+  document.getElementById("copy-link-btn").textContent = t("copyBtn");
+  document.getElementById("error-msg").textContent = t("errorMsg");
+  document.getElementById("footer-text").innerHTML =
+    t("footerLine1", t("footerSiteName")) + "<br>" + t("footerLine2");
+  // les placeholders des 5 lignes doivent être reconstruits dans la nouvelle langue
+  const villeInputs = rowsEl.querySelectorAll(".ville-input");
+  const altInputs = rowsEl.querySelectorAll(".alt-input");
+  villeInputs.forEach((input, i) => { input.placeholder = t("villePlaceholder", i); });
+  altInputs.forEach((input) => { input.placeholder = t("altPlaceholder"); });
+}
+
+function setLang(newLang){
+  if(newLang !== "fr" && newLang !== "en") return;
+  if(newLang === lang) return;
+  lang = newLang;
+  localStorage.setItem("lanceur-api-lang", lang);
+  document.documentElement.lang = lang;
+  document.querySelectorAll(".lang-btn[data-lang]").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
+  applyStaticTranslations();
+}
+
+document.querySelectorAll(".lang-btn[data-lang]").forEach(btn => {
+  btn.addEventListener("click", () => setLang(btn.dataset.lang));
+});
+
+(function init(){
+  document.documentElement.lang = lang;
+  document.querySelectorAll(".lang-btn[data-lang]").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
+  applyStaticTranslations();
+})();
 </script>
 </body>
 </html>
