@@ -93,6 +93,22 @@
   .ville-row input.alt-input{
     font-family:'IBM Plex Mono', monospace; font-size:13px;
   }
+  .ville-search-wrap{position:relative;}
+  .ville-input.confirmed{border-color:var(--live);}
+  .suggestions{
+    display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:30;
+    background:var(--bg-card); border:1px solid var(--hairline); border-radius:10px;
+    max-height:230px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,.35);
+  }
+  .suggestions.show{display:block;}
+  .suggestion-item{
+    padding:10px 13px; font-size:13.5px; cursor:pointer; border-bottom:1px solid var(--hairline);
+  }
+  .suggestion-item:last-child{border-bottom:none;}
+  .suggestion-item:hover, .suggestion-item.active{background:var(--bg-input); color:var(--live);}
+  .suggestion-empty{
+    padding:10px 13px; font-size:12.5px; color:var(--text-lo);
+  }
 
   .site-cible-toggle{
     font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-lo);
@@ -268,6 +284,9 @@ const TRANSLATIONS = {
     villePlaceholder: (i) => i === 0 ? "Ville 1 (ex : Narbonne)" : `Ville ${i + 1}`,
     altPlaceholder: "Altitude (m)",
     errorMsg: "Saisis au moins une ville.",
+    errorUnconfirmed: "Choisis une ville dans la liste proposée pour chaque champ rempli (clique ou valide avec Entrée).",
+    searching: "Recherche…",
+    noResults: "Aucune ville trouvée.",
     launchBtn: "🚀 Lancer la comparaison",
     meteoFamilleBtn: "🏠 Ouvrir meteo-famille",
     siteCibleToggle: "⚙ Sites cibles",
@@ -276,7 +295,7 @@ const TRANSLATIONS = {
     linkPreviewTitle: "Lien généré",
     copyBtn: "🔗 Copier",
     copiedBtn: "✓ Copié",
-    footerLine1: (base) => `Génère une URL <code>?ville=...</code> pour ${base} · rien n'est envoyé nulle part, tout se passe dans ton navigateur`,
+    footerLine1: (base) => `Génère une URL <code>?points=...</code> pour ${base}, à partir des villes confirmées par la recherche · rien n'est envoyé nulle part, tout se passe dans ton navigateur`,
     footerLine2: "Les villes saisies sont mémorisées sur cet appareil pour la prochaine fois",
     footerSiteName: "le comparateur de températures",
     gateTitle: "Accès protégé",
@@ -293,6 +312,9 @@ const TRANSLATIONS = {
     villePlaceholder: (i) => i === 0 ? "City 1 (e.g. Narbonne)" : `City ${i + 1}`,
     altPlaceholder: "Altitude (m)",
     errorMsg: "Enter at least one city.",
+    errorUnconfirmed: "Pick a city from the suggestion list for every field you filled in (click it or confirm with Enter).",
+    searching: "Searching…",
+    noResults: "No city found.",
     launchBtn: "🚀 Launch comparison",
     meteoFamilleBtn: "🏠 Open meteo-famille",
     siteCibleToggle: "⚙ Target sites",
@@ -301,7 +323,7 @@ const TRANSLATIONS = {
     linkPreviewTitle: "Generated link",
     copyBtn: "🔗 Copy",
     copiedBtn: "✓ Copied",
-    footerLine1: (base) => `Generates a <code>?ville=...</code> URL for ${base} · nothing is sent anywhere, everything happens in your browser`,
+    footerLine1: (base) => `Generates a <code>?points=...</code> URL for ${base}, from cities confirmed via search · nothing is sent anywhere, everything happens in your browser`,
     footerLine2: "The cities you enter are remembered on this device for next time",
     footerSiteName: "the temperature comparison site",
     gateTitle: "Protected access",
@@ -320,7 +342,7 @@ function t(key, ...args){
   return typeof entry === "function" ? entry(...args) : entry;
 }
 
-const STORAGE_KEY = "lanceur-api-villes-v1";
+const STORAGE_KEY = "lanceur-api-villes-v2";
 const SITE_KEY = "lanceur-api-site-v1";
 const METEO_FAMILLE_SITE_KEY = "lanceur-api-meteo-famille-site-v1";
 const NB_VILLES = 5;
@@ -365,19 +387,153 @@ function escapeHtml(s){
   }[c]));
 }
 
-// ---- Construction des 5 lignes de saisie ----
+// ---- Construction des 5 lignes de saisie avec recherche Open-Meteo ----
 const saved = loadSaved();
+let confirmedSelections = new Array(NB_VILLES).fill(null);
+
+function displayLabel(item){
+  let label = item.nom;
+  const extra = [item.admin1, item.country].filter(Boolean).join(", ");
+  if(extra) label += ` (${extra})`;
+  return label;
+}
+
+async function searchCities(q){
+  const query = q.trim();
+  if(query.length < 2) return [];
+  try{
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=6&language=${lang}&format=json`;
+    const res = await fetch(url);
+    if(!res.ok) return [];
+    const data = await res.json();
+    return (data.results || []).map(r => ({
+      nom: r.name, lat: r.latitude, lon: r.longitude,
+      admin1: r.admin1 || "", country: r.country || "",
+    }));
+  }catch(e){
+    return [];
+  }
+}
+
+function wireRow(row, i){
+  const input = row.querySelector(".ville-input");
+  const suggBox = row.querySelector(".suggestions");
+  let debounceTimer = null;
+  let requestToken = 0;
+  let currentResults = [];
+  let highlighted = -1;
+
+  function clearConfirmed(){
+    confirmedSelections[i] = null;
+    input.classList.remove("confirmed");
+  }
+
+  function hideSuggestions(){
+    suggBox.classList.remove("show");
+    suggBox.innerHTML = "";
+    currentResults = [];
+    highlighted = -1;
+  }
+
+  function updateHighlight(){
+    suggBox.querySelectorAll(".suggestion-item").forEach((el, idx) => {
+      el.classList.toggle("active", idx === highlighted);
+    });
+  }
+
+  function renderSuggestions(results){
+    currentResults = results;
+    highlighted = -1;
+    if(!results.length){
+      suggBox.innerHTML = `<div class="suggestion-empty">${escapeHtml(t("noResults"))}</div>`;
+      suggBox.classList.add("show");
+      return;
+    }
+    suggBox.innerHTML = results.map((r, idx) =>
+      `<div class="suggestion-item" data-idx="${idx}">${escapeHtml(displayLabel(r))}</div>`
+    ).join("");
+    suggBox.classList.add("show");
+  }
+
+  function selectResult(r){
+    input.value = displayLabel(r);
+    confirmedSelections[i] = r;
+    input.classList.add("confirmed");
+    hideSuggestions();
+  }
+
+  input.addEventListener("input", () => {
+    clearConfirmed();
+    const q = input.value;
+    if(debounceTimer) clearTimeout(debounceTimer);
+    if(q.trim().length < 2){ hideSuggestions(); return; }
+    suggBox.innerHTML = `<div class="suggestion-empty">${escapeHtml(t("searching"))}</div>`;
+    suggBox.classList.add("show");
+    const myToken = ++requestToken;
+    debounceTimer = setTimeout(async () => {
+      const results = await searchCities(q);
+      if(myToken !== requestToken) return; // une saisie plus récente a pris le dessus
+      renderSuggestions(results);
+    }, 350);
+  });
+
+  suggBox.addEventListener("mousedown", (e) => {
+    const item = e.target.closest(".suggestion-item");
+    if(!item) return;
+    e.preventDefault();
+    const idx = parseInt(item.dataset.idx, 10);
+    if(currentResults[idx]) selectResult(currentResults[idx]);
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if(e.key === "Enter"){
+      e.preventDefault();
+      if(suggBox.classList.contains("show") && highlighted >= 0 && currentResults[highlighted]){
+        selectResult(currentResults[highlighted]);
+      }else if(suggBox.classList.contains("show") && currentResults.length === 1){
+        selectResult(currentResults[0]);
+      }
+      return;
+    }
+    if(!suggBox.classList.contains("show") || !currentResults.length) return;
+    if(e.key === "ArrowDown"){
+      e.preventDefault();
+      highlighted = Math.min(highlighted + 1, currentResults.length - 1);
+      updateHighlight();
+    }else if(e.key === "ArrowUp"){
+      e.preventDefault();
+      highlighted = Math.max(highlighted - 1, 0);
+      updateHighlight();
+    }else if(e.key === "Escape"){
+      hideSuggestions();
+    }
+  });
+
+  input.addEventListener("blur", () => {
+    setTimeout(() => hideSuggestions(), 150);
+  });
+}
+
 function buildRows(){
   rowsEl.innerHTML = "";
+  confirmedSelections = new Array(NB_VILLES).fill(null);
   for(let i = 0; i < NB_VILLES; i++){
-    const entry = saved[i] || { ville: "", alt: "" };
+    const entry = saved[i] || null;
+    const hasCoords = !!(entry && entry.lat !== undefined && entry.lon !== undefined && entry.lat !== null && entry.lon !== null && !isNaN(entry.lat) && !isNaN(entry.lon));
+    const inputValue = hasCoords ? displayLabel(entry) : (entry && entry.nom ? entry.nom : "");
+    const altValue = entry && entry.alt !== undefined && entry.alt !== null ? entry.alt : "";
     const row = document.createElement("div");
     row.className = "ville-row";
     row.innerHTML = `
-      <input type="text" class="ville-input" placeholder="${escapeHtml(t("villePlaceholder", i))}" value="${escapeHtml(entry.ville)}">
-      <input type="number" class="alt-input" placeholder="${escapeHtml(t("altPlaceholder"))}" value="${escapeHtml(entry.alt)}">
+      <div class="ville-search-wrap">
+        <input type="text" class="ville-input${hasCoords ? " confirmed" : ""}" autocomplete="off" placeholder="${escapeHtml(t("villePlaceholder", i))}" value="${escapeHtml(inputValue)}">
+        <div class="suggestions"></div>
+      </div>
+      <input type="number" class="alt-input" placeholder="${escapeHtml(t("altPlaceholder"))}" value="${escapeHtml(altValue)}">
     `;
     rowsEl.appendChild(row);
+    if(hasCoords) confirmedSelections[i] = entry;
+    wireRow(row, i);
   }
 }
 buildRows();
@@ -389,26 +545,27 @@ siteToggle.addEventListener("click", () => {
   siteWrap.classList.toggle("open");
 });
 
-function collectEntries(){
-  const villeInputs = rowsEl.querySelectorAll(".ville-input");
+function buildPointsParam(){
   const altInputs = rowsEl.querySelectorAll(".alt-input");
-  const entries = [];
-  villeInputs.forEach((input, i) => {
-    const ville = input.value.trim();
-    const alt = altInputs[i].value.trim();
-    entries.push({ ville, alt });
+  const parts = [];
+  const toSave = [];
+  confirmedSelections.forEach((sel, i) => {
+    if(!sel) return;
+    const altRaw = altInputs[i].value.trim();
+    const alt = altRaw !== "" && !isNaN(parseFloat(altRaw)) ? parseFloat(altRaw) : null;
+    parts.push(`${sel.lat},${sel.lon},${alt !== null ? alt : ""},${encodeURIComponent(sel.nom)}`);
+    toSave.push({ nom: sel.nom, lat: sel.lat, lon: sel.lon, admin1: sel.admin1 || "", country: sel.country || "", alt: alt });
   });
-  return entries;
+  return { param: parts.join(";"), toSave };
 }
 
-function buildVilleParam(entries){
-  return entries
-    .filter(e => e.ville)
-    .map(e => {
-      const alt = e.alt !== "" && !isNaN(parseFloat(e.alt)) ? parseFloat(e.alt) : null;
-      return alt !== null ? `${e.ville},${alt}` : e.ville;
-    })
-    .join(";");
+function hasUnconfirmedEntries(){
+  const villeInputs = rowsEl.querySelectorAll(".ville-input");
+  let found = false;
+  villeInputs.forEach((input, i) => {
+    if(input.value.trim() && !confirmedSelections[i]) found = true;
+  });
+  return found;
 }
 
 function normalizeSiteUrl(raw){
@@ -422,20 +579,26 @@ document.getElementById("launch-form").addEventListener("submit", (e) => {
   e.preventDefault();
   errorEl.classList.remove("show");
 
-  const entries = collectEntries();
-  const villeParam = buildVilleParam(entries);
-
-  if(!villeParam){
+  if(hasUnconfirmedEntries()){
+    errorEl.textContent = t("errorUnconfirmed");
     errorEl.classList.add("show");
     return;
   }
 
-  saveEntries(entries);
+  const { param: pointsParam, toSave } = buildPointsParam();
+
+  if(!pointsParam){
+    errorEl.textContent = t("errorMsg");
+    errorEl.classList.add("show");
+    return;
+  }
+
+  saveEntries(toSave);
   const siteUrl = normalizeSiteUrl(siteInput.value);
   saveSiteUrl(SITE_KEY, siteUrl);
 
   const url = new URL(siteUrl);
-  url.searchParams.set("ville", villeParam);
+  url.searchParams.set("points", pointsParam);
 
   linkInput.value = url.toString();
   linkPanel.classList.add("show");
