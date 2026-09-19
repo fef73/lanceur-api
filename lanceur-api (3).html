@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lanceur — Comparateur Météo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0b1622;
+    --bg-panel: #101f30;
+    --bg-card: #132539;
+    --bg-input: #0f1d2c;
+    --hairline: #22384f;
+    --text-hi: #f3f6f9;
+    --text-lo: #8fa4b8;
+    --live: #7ee4b8;
+    --danger: #e76f51;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(69,123,157,0.18), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 90% 0%, rgba(231,111,81,0.10), transparent 55%),
+      var(--bg);
+    color:var(--text-hi);
+    font-family:'Space Grotesk', sans-serif;
+    min-height:100vh;
+    padding:28px 20px 60px;
+  }
+  .wrap{max-width:640px; margin:0 auto;}
+
+  header{
+    border-bottom:1px solid var(--hairline);
+    padding-bottom:22px; margin-bottom:24px;
+  }
+  .header-top-row{
+    display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .header-top-row .eyebrow{margin-bottom:0;}
+  .lang-switch{
+    display:flex; gap:4px; background:var(--bg-input); border:1px solid var(--hairline);
+    border-radius:8px; padding:3px;
+  }
+  .lang-btn{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:600; letter-spacing:.04em;
+    color:var(--text-lo); background:transparent; border:none; border-radius:6px;
+    padding:5px 10px; cursor:pointer; transition:background .15s, color .15s;
+  }
+  .lang-btn:hover{color:var(--text-hi);}
+  .lang-btn.active{background:var(--live); color:#0b1622;}
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--live); display:flex; align-items:center; gap:8px; margin-bottom:8px;
+  }
+  .pulse{width:7px;height:7px;border-radius:50%;background:var(--live);
+    box-shadow:0 0 0 0 rgba(126,228,184,.6); animation:pulse 2.2s infinite;}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(126,228,184,.55);}
+    70%{box-shadow:0 0 0 9px rgba(126,228,184,0);}
+    100%{box-shadow:0 0 0 0 rgba(126,228,184,0);}
+  }
+  h1{
+    font-family:'Fraunces', serif; font-weight:600; font-style:italic;
+    font-size:clamp(26px,4.5vw,34px); margin:14px 0 10px; line-height:1.15;
+  }
+  .subtitle{color:var(--text-lo); font-size:14px; line-height:1.5; max-width:56ch;}
+
+  .panel{
+    background:var(--bg-panel); border:1px solid var(--hairline); border-radius:16px;
+    padding:22px; margin-bottom:18px;
+  }
+  .panel-title{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--text-lo); margin:0 0 16px;
+    display:flex; align-items:center; gap:8px;
+  }
+
+  .ville-row{
+    display:grid; grid-template-columns:1fr 120px; gap:8px; margin-bottom:10px;
+  }
+  .ville-row:last-child{margin-bottom:0;}
+  .ville-row input{
+    background:var(--bg-input); border:1px solid var(--hairline); border-radius:10px;
+    color:var(--text-hi); font-family:'Space Grotesk', sans-serif; font-size:14px;
+    padding:11px 13px; width:100%; outline:none; transition:border-color .15s;
+  }
+  .ville-row input:focus{border-color:var(--live);}
+  .ville-row input::placeholder{color:var(--text-lo); opacity:.7;}
+  .ville-row input.alt-input{
+    font-family:'IBM Plex Mono', monospace; font-size:13px;
+  }
+
+  .site-cible-toggle{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-lo);
+    background:none; border:none; cursor:pointer; padding:0; margin-top:14px;
+    text-decoration:underline; text-underline-offset:2px; opacity:.8;
+  }
+  .site-cible-toggle:hover{opacity:1; color:var(--text-hi);}
+  .site-cible-wrap{display:none; margin-top:10px;}
+  .site-cible-wrap.open{display:block;}
+  .site-cible-wrap input{
+    background:var(--bg-input); border:1px solid var(--hairline); border-radius:10px;
+    color:var(--text-hi); font-family:'IBM Plex Mono', monospace; font-size:12.5px;
+    padding:9px 12px; width:100%; outline:none;
+  }
+  .site-cible-wrap input:focus{border-color:var(--live);}
+  .site-cible-wrap input{margin-bottom:12px;}
+  .site-cible-wrap input:last-child{margin-bottom:0;}
+  .site-cible-label{
+    font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:.05em;
+    color:var(--text-lo); opacity:.7; text-transform:uppercase; margin:0 0 4px 2px;
+  }
+
+  .quick-link-btn{
+    width:100%; margin-top:10px;
+    background:var(--bg-card); color:var(--text-hi); border:1px solid var(--hairline);
+    border-radius:12px; font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:14px;
+    padding:12px; cursor:pointer; transition:border-color .15s, filter .15s;
+  }
+  .quick-link-btn:hover{border-color:var(--live);}
+  .quick-link-btn:active{transform:scale(.98);}
+
+  .error-msg{
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--danger);
+    margin-top:12px; display:none;
+  }
+  .error-msg.show{display:block;}
+
+  .launch-btn{
+    width:100%; margin-top:18px;
+    background:var(--live); color:#0b1622; border:none; border-radius:12px;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:16px;
+    padding:15px; cursor:pointer; transition:filter .15s, transform .1s;
+  }
+  .launch-btn:hover{filter:brightness(1.08);}
+  .launch-btn:active{transform:scale(.98);}
+
+  .link-preview-panel{display:none;}
+  .link-preview-panel.show{display:block;}
+  .link-preview-row{display:flex; gap:8px;}
+  .link-preview-row input{
+    flex:1; background:var(--bg-input); border:1px solid var(--hairline); border-radius:10px;
+    color:var(--text-lo); font-family:'IBM Plex Mono', monospace; font-size:11.5px;
+    padding:10px 12px; outline:none;
+  }
+  .copy-btn{
+    background:var(--bg-card); color:var(--text-hi); border:1px solid var(--hairline);
+    border-radius:10px; font-family:'IBM Plex Mono', monospace; font-size:12px;
+    padding:0 16px; cursor:pointer; white-space:nowrap; transition:border-color .15s;
+  }
+  .copy-btn:hover{border-color:var(--live);}
+
+  footer{
+    font-family:'IBM Plex Mono', monospace; font-size:11px;
+    color:var(--text-lo); text-align:center; line-height:1.7; opacity:.7;
+  }
+
+  #app-content{display:none;}
+  #gate-overlay{
+    position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center;
+    background:var(--bg); padding:20px;
+  }
+  .gate-box{
+    max-width:340px; width:100%; background:var(--bg-panel); border:1px solid var(--hairline);
+    border-radius:16px; padding:28px 24px; text-align:center;
+  }
+  .gate-title{
+    font-family:'Fraunces', serif; font-weight:600; font-style:italic;
+    font-size:22px; margin:0 0 8px;
+  }
+  .gate-sub{color:var(--text-lo); font-size:13px; margin-bottom:18px; line-height:1.5;}
+  .gate-box input{
+    width:100%; background:var(--bg-input); border:1px solid var(--hairline); border-radius:10px;
+    color:var(--text-hi); font-family:'IBM Plex Mono', monospace; font-size:16px;
+    letter-spacing:.05em; padding:12px 14px; outline:none; text-align:center;
+    transition:border-color .15s;
+  }
+  .gate-box input:focus{border-color:var(--live);}
+  .gate-box input.shake{border-color:var(--danger); animation:shake .3s;}
+  @keyframes shake{
+    25%{transform:translateX(-5px);} 75%{transform:translateX(5px);}
+  }
+  .gate-btn{
+    width:100%; margin-top:12px;
+    background:var(--live); color:#0b1622; border:none; border-radius:10px;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:14px;
+    padding:12px; cursor:pointer; transition:filter .15s, transform .1s;
+  }
+  .gate-btn:hover{filter:brightness(1.08);}
+  .gate-btn:active{transform:scale(.98);}
+  .gate-error{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--danger);
+    margin-top:10px; min-height:16px;
+  }
+</style>
+</head>
+<body>
+
+<div id="gate-overlay">
+  <div class="gate-box">
+    <div class="gate-title" id="gate-title-text">Accès protégé</div>
+    <div class="gate-sub" id="gate-sub-text">Ce site est réservé — entre le code d'accès.</div>
+    <input type="password" id="gate-input" inputmode="text" autocomplete="off" placeholder="Code d'accès">
+    <button type="button" class="gate-btn" id="gate-btn-text">🔓 Entrer</button>
+    <div class="gate-error" id="gate-error"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app-content">
+
+  <header>
+    <div class="header-top-row">
+      <div class="eyebrow"><span class="pulse"></span><span id="eyebrow-text">lanceur — accès rapide</span></div>
+      <div class="lang-switch">
+        <button class="lang-btn" data-lang="fr">FR</button>
+        <button class="lang-btn" data-lang="en">EN</button>
+      </div>
+    </div>
+    <h1 id="title-text">Comparer jusqu'à 5 villes</h1>
+    <div class="subtitle" id="subtitle-text">Saisis les villes (et une altitude optionnelle, en mètres, pour un point précis comme une station de ski), puis lance directement la comparaison — sans manipuler d'URL.</div>
+  </header>
+
+  <form id="launch-form" autocomplete="off">
+    <div class="panel">
+      <div class="panel-title" id="panel-title-text">Villes à comparer</div>
+      <div id="villes-rows"></div>
+      <div class="error-msg" id="error-msg">Saisis au moins une ville.</div>
+    </div>
+
+    <button type="submit" class="launch-btn" id="launch-btn-text">🚀 Lancer la comparaison</button>
+    <button type="button" class="quick-link-btn" id="meteo-famille-btn-text">🏠 Ouvrir meteo-famille</button>
+
+    <button type="button" class="site-cible-toggle" id="site-cible-toggle">⚙ Sites cibles</button>
+    <div class="site-cible-wrap" id="site-cible-wrap">
+      <div class="site-cible-label" id="site-cible-label-1">Comparateur de températures</div>
+      <input type="text" id="site-cible-input" value="https://fef73.github.io/comparateur-temperatures/">
+      <div class="site-cible-label" id="site-cible-label-2">Meteo-famille</div>
+      <input type="text" id="meteo-famille-site-input" value="https://fef73.github.io/meteo-famille/">
+    </div>
+  </form>
+
+  <div class="panel link-preview-panel" id="link-preview-panel">
+    <div class="panel-title" id="link-preview-title">Lien généré</div>
+    <div class="link-preview-row">
+      <input type="text" id="link-preview-input" readonly>
+      <button type="button" class="copy-btn" id="copy-link-btn">🔗 Copier</button>
+    </div>
+  </div>
+
+  <footer id="footer-text">
+    Génère une URL <code>?ville=...</code> pour le comparateur de températures · rien n'est envoyé nulle part, tout se passe dans ton navigateur<br>
+    Les villes saisies sont mémorisées sur cet appareil pour la prochaine fois
+  </footer>
+
+</div>
+
+<script>
+const TRANSLATIONS = {
+  fr: {
+    eyebrow: "lanceur — accès rapide",
+    title: "Comparer jusqu'à 5 villes",
+    subtitle: "Saisis les villes (et une altitude optionnelle, en mètres, pour un point précis comme une station de ski), puis lance directement la comparaison — sans manipuler d'URL.",
+    panelTitle: "Villes à comparer",
+    villePlaceholder: (i) => i === 0 ? "Ville 1 (ex : Narbonne)" : `Ville ${i + 1}`,
+    altPlaceholder: "Altitude (m)",
+    errorMsg: "Saisis au moins une ville.",
+    launchBtn: "🚀 Lancer la comparaison",
+    meteoFamilleBtn: "🏠 Ouvrir meteo-famille",
+    siteCibleToggle: "⚙ Sites cibles",
+    siteCibleLabel1: "Comparateur de températures",
+    siteCibleLabel2: "Meteo-famille",
+    linkPreviewTitle: "Lien généré",
+    copyBtn: "🔗 Copier",
+    copiedBtn: "✓ Copié",
+    footerLine1: (base) => `Génère une URL <code>?ville=...</code> pour ${base} · rien n'est envoyé nulle part, tout se passe dans ton navigateur`,
+    footerLine2: "Les villes saisies sont mémorisées sur cet appareil pour la prochaine fois",
+    footerSiteName: "le comparateur de températures",
+    gateTitle: "Accès protégé",
+    gateSub: "Ce site est réservé — entre le code d'accès.",
+    gatePlaceholder: "Code d'accès",
+    gateBtn: "🔓 Entrer",
+    gateError: "Code incorrect.",
+  },
+  en: {
+    eyebrow: "launcher — quick access",
+    title: "Compare up to 5 cities",
+    subtitle: "Enter the cities (and an optional altitude in meters, for a precise spot like a ski resort), then launch the comparison directly — no URL to type.",
+    panelTitle: "Cities to compare",
+    villePlaceholder: (i) => i === 0 ? "City 1 (e.g. Narbonne)" : `City ${i + 1}`,
+    altPlaceholder: "Altitude (m)",
+    errorMsg: "Enter at least one city.",
+    launchBtn: "🚀 Launch comparison",
+    meteoFamilleBtn: "🏠 Open meteo-famille",
+    siteCibleToggle: "⚙ Target sites",
+    siteCibleLabel1: "Temperature comparison",
+    siteCibleLabel2: "Meteo-famille",
+    linkPreviewTitle: "Generated link",
+    copyBtn: "🔗 Copy",
+    copiedBtn: "✓ Copied",
+    footerLine1: (base) => `Generates a <code>?ville=...</code> URL for ${base} · nothing is sent anywhere, everything happens in your browser`,
+    footerLine2: "The cities you enter are remembered on this device for next time",
+    footerSiteName: "the temperature comparison site",
+    gateTitle: "Protected access",
+    gateSub: "This site is restricted — enter the access code.",
+    gatePlaceholder: "Access code",
+    gateBtn: "🔓 Enter",
+    gateError: "Incorrect code.",
+  },
+};
+
+let lang = localStorage.getItem("lanceur-api-lang") || (navigator.language && navigator.language.startsWith("en") ? "en" : "fr");
+
+function t(key, ...args){
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS.fr;
+  const entry = dict[key] !== undefined ? dict[key] : TRANSLATIONS.fr[key];
+  return typeof entry === "function" ? entry(...args) : entry;
+}
+
+const STORAGE_KEY = "lanceur-api-villes-v1";
+const SITE_KEY = "lanceur-api-site-v1";
+const METEO_FAMILLE_SITE_KEY = "lanceur-api-meteo-famille-site-v1";
+const NB_VILLES = 5;
+const DEFAULT_SITE = "https://fef73.github.io/comparateur-temperatures/";
+const DEFAULT_METEO_FAMILLE_SITE = "https://fef73.github.io/meteo-famille/";
+
+const rowsEl = document.getElementById("villes-rows");
+const errorEl = document.getElementById("error-msg");
+const siteInput = document.getElementById("site-cible-input");
+const meteoFamilleSiteInput = document.getElementById("meteo-famille-site-input");
+const meteoFamilleBtn = document.getElementById("meteo-famille-btn-text");
+const siteToggle = document.getElementById("site-cible-toggle");
+const siteWrap = document.getElementById("site-cible-wrap");
+const linkPanel = document.getElementById("link-preview-panel");
+const linkInput = document.getElementById("link-preview-input");
+const copyBtn = document.getElementById("copy-link-btn");
+
+function loadSaved(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){
+    return [];
+  }
+}
+
+function saveEntries(entries){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); }catch(e){}
+}
+
+function loadSiteUrl(key, fallback){
+  try{ return localStorage.getItem(key) || fallback; }catch(e){ return fallback; }
+}
+
+function saveSiteUrl(key, url){
+  try{ localStorage.setItem(key, url); }catch(e){}
+}
+
+function escapeHtml(s){
+  return String(s || "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+// ---- Construction des 5 lignes de saisie ----
+const saved = loadSaved();
+function buildRows(){
+  rowsEl.innerHTML = "";
+  for(let i = 0; i < NB_VILLES; i++){
+    const entry = saved[i] || { ville: "", alt: "" };
+    const row = document.createElement("div");
+    row.className = "ville-row";
+    row.innerHTML = `
+      <input type="text" class="ville-input" placeholder="${escapeHtml(t("villePlaceholder", i))}" value="${escapeHtml(entry.ville)}">
+      <input type="number" class="alt-input" placeholder="${escapeHtml(t("altPlaceholder"))}" value="${escapeHtml(entry.alt)}">
+    `;
+    rowsEl.appendChild(row);
+  }
+}
+buildRows();
+
+siteInput.value = loadSiteUrl(SITE_KEY, DEFAULT_SITE);
+meteoFamilleSiteInput.value = loadSiteUrl(METEO_FAMILLE_SITE_KEY, DEFAULT_METEO_FAMILLE_SITE);
+
+siteToggle.addEventListener("click", () => {
+  siteWrap.classList.toggle("open");
+});
+
+function collectEntries(){
+  const villeInputs = rowsEl.querySelectorAll(".ville-input");
+  const altInputs = rowsEl.querySelectorAll(".alt-input");
+  const entries = [];
+  villeInputs.forEach((input, i) => {
+    const ville = input.value.trim();
+    const alt = altInputs[i].value.trim();
+    entries.push({ ville, alt });
+  });
+  return entries;
+}
+
+function buildVilleParam(entries){
+  return entries
+    .filter(e => e.ville)
+    .map(e => {
+      const alt = e.alt !== "" && !isNaN(parseFloat(e.alt)) ? parseFloat(e.alt) : null;
+      return alt !== null ? `${e.ville},${alt}` : e.ville;
+    })
+    .join(";");
+}
+
+function normalizeSiteUrl(raw){
+  let url = raw.trim();
+  if(!url) url = DEFAULT_SITE;
+  if(!/^https?:\/\//i.test(url)) url = "https://" + url;
+  return url;
+}
+
+document.getElementById("launch-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  errorEl.classList.remove("show");
+
+  const entries = collectEntries();
+  const villeParam = buildVilleParam(entries);
+
+  if(!villeParam){
+    errorEl.classList.add("show");
+    return;
+  }
+
+  saveEntries(entries);
+  const siteUrl = normalizeSiteUrl(siteInput.value);
+  saveSiteUrl(SITE_KEY, siteUrl);
+
+  const url = new URL(siteUrl);
+  url.searchParams.set("ville", villeParam);
+
+  linkInput.value = url.toString();
+  linkPanel.classList.add("show");
+
+  window.location.href = url.toString();
+});
+
+meteoFamilleBtn.addEventListener("click", () => {
+  const siteUrl = normalizeSiteUrl(meteoFamilleSiteInput.value);
+  saveSiteUrl(METEO_FAMILLE_SITE_KEY, siteUrl);
+  window.location.href = siteUrl;
+});
+
+copyBtn.addEventListener("click", () => {
+  linkInput.select();
+  const showCopied = () => {
+    const original = copyBtn.textContent;
+    copyBtn.textContent = t("copiedBtn");
+    setTimeout(() => { copyBtn.textContent = original; }, 1600);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(linkInput.value).then(showCopied).catch(() => {});
+  }else{
+    try{ document.execCommand("copy"); showCopied(); }catch(e){}
+  }
+});
+
+// ---- Traductions statiques ----
+function applyStaticTranslations(){
+  document.getElementById("eyebrow-text").textContent = t("eyebrow");
+  document.getElementById("title-text").textContent = t("title");
+  document.getElementById("subtitle-text").textContent = t("subtitle");
+  document.getElementById("panel-title-text").textContent = t("panelTitle");
+  document.getElementById("launch-btn-text").textContent = t("launchBtn");
+  document.getElementById("meteo-famille-btn-text").textContent = t("meteoFamilleBtn");
+  document.getElementById("site-cible-toggle").textContent = t("siteCibleToggle");
+  document.getElementById("site-cible-label-1").textContent = t("siteCibleLabel1");
+  document.getElementById("site-cible-label-2").textContent = t("siteCibleLabel2");
+  document.getElementById("link-preview-title").textContent = t("linkPreviewTitle");
+  document.getElementById("copy-link-btn").textContent = t("copyBtn");
+  document.getElementById("error-msg").textContent = t("errorMsg");
+  document.getElementById("footer-text").innerHTML =
+    t("footerLine1", t("footerSiteName")) + "<br>" + t("footerLine2");
+  // les placeholders des 5 lignes doivent être reconstruits dans la nouvelle langue
+  const villeInputs = rowsEl.querySelectorAll(".ville-input");
+  const altInputs = rowsEl.querySelectorAll(".alt-input");
+  villeInputs.forEach((input, i) => { input.placeholder = t("villePlaceholder", i); });
+  altInputs.forEach((input) => { input.placeholder = t("altPlaceholder"); });
+  document.getElementById("gate-title-text").textContent = t("gateTitle");
+  document.getElementById("gate-sub-text").textContent = t("gateSub");
+  document.getElementById("gate-input").placeholder = t("gatePlaceholder");
+  document.getElementById("gate-btn-text").textContent = t("gateBtn");
+}
+
+function setLang(newLang){
+  if(newLang !== "fr" && newLang !== "en") return;
+  if(newLang === lang) return;
+  lang = newLang;
+  localStorage.setItem("lanceur-api-lang", lang);
+  document.documentElement.lang = lang;
+  document.querySelectorAll(".lang-btn[data-lang]").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
+  applyStaticTranslations();
+}
+
+document.querySelectorAll(".lang-btn[data-lang]").forEach(btn => {
+  btn.addEventListener("click", () => setLang(btn.dataset.lang));
+});
+
+// ---- Verrou d'accès (protection légère, pas une vraie sécurité) ----
+// Hash SHA-256 du code d'accès attendu, pour ne pas le stocker en clair dans le code source.
+const GATE_HASH = "edc46b78ccd7510eba9a6981fc48f495be329e07b14663e5c0114b8bd062efa2";
+const GATE_KEY = "lanceur-api-unlocked-v1";
+
+async function sha256Hex(text){
+  const data = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function showApp(){
+  document.getElementById("gate-overlay").style.display = "none";
+  document.getElementById("app-content").style.display = "block";
+}
+
+const gateInput = document.getElementById("gate-input");
+const gateBtn = document.getElementById("gate-btn-text");
+const gateError = document.getElementById("gate-error");
+
+async function tryUnlock(){
+  const value = gateInput.value.trim();
+  if(!value) return;
+  const hash = await sha256Hex(value);
+  if(hash === GATE_HASH){
+    try{ localStorage.setItem(GATE_KEY, "1"); }catch(e){}
+    gateError.textContent = "";
+    showApp();
+  }else{
+    gateError.textContent = t("gateError");
+    gateInput.classList.remove("shake");
+    void gateInput.offsetWidth; // relance l'animation
+    gateInput.classList.add("shake");
+    gateInput.value = "";
+    gateInput.focus();
+  }
+}
+
+gateBtn.addEventListener("click", tryUnlock);
+gateInput.addEventListener("keydown", (e) => {
+  if(e.key === "Enter") tryUnlock();
+});
+
+(function init(){
+  document.documentElement.lang = lang;
+  document.querySelectorAll(".lang-btn[data-lang]").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
+  applyStaticTranslations();
+
+  let alreadyUnlocked = false;
+  try{ alreadyUnlocked = localStorage.getItem(GATE_KEY) === "1"; }catch(e){}
+
+  if(alreadyUnlocked){
+    showApp();
+  }else{
+    gateInput.focus();
+  }
+})();
+</script>
+</body>
+</html>
