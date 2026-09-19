@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lanceur — Comparateur Météo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0b1622;
+    --bg-panel: #101f30;
+    --bg-card: #132539;
+    --bg-input: #0f1d2c;
+    --hairline: #22384f;
+    --text-hi: #f3f6f9;
+    --text-lo: #8fa4b8;
+    --live: #7ee4b8;
+    --danger: #e76f51;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(69,123,157,0.18), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 90% 0%, rgba(231,111,81,0.10), transparent 55%),
+      var(--bg);
+    color:var(--text-hi);
+    font-family:'Space Grotesk', sans-serif;
+    min-height:100vh;
+    padding:28px 20px 60px;
+  }
+  .wrap{max-width:640px; margin:0 auto;}
+
+  header{
+    border-bottom:1px solid var(--hairline);
+    padding-bottom:22px; margin-bottom:24px;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--live); display:flex; align-items:center; gap:8px; margin-bottom:8px;
+  }
+  .pulse{width:7px;height:7px;border-radius:50%;background:var(--live);
+    box-shadow:0 0 0 0 rgba(126,228,184,.6); animation:pulse 2.2s infinite;}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(126,228,184,.55);}
+    70%{box-shadow:0 0 0 9px rgba(126,228,184,0);}
+    100%{box-shadow:0 0 0 0 rgba(126,228,184,0);}
+  }
+  h1{
+    font-family:'Fraunces', serif; font-weight:600; font-style:italic;
+    font-size:clamp(26px,4.5vw,34px); margin:0 0 10px; line-height:1.15;
+  }
+  .subtitle{color:var(--text-lo); font-size:14px; line-height:1.5; max-width:56ch;}
+
+  .panel{
+    background:var(--bg-panel); border:1px solid var(--hairline); border-radius:16px;
+    padding:22px; margin-bottom:18px;
+  }
+  .panel-title{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--text-lo); margin:0 0 16px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .panel-title .n{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:18px; height:18px; border-radius:50%; background:var(--bg-input);
+    border:1px solid var(--hairline); font-size:10px; color:var(--text-hi); flex:none;
+  }
+
+  .ville-row{
+    display:grid; grid-template-columns:1fr 120px; gap:8px; margin-bottom:10px;
+  }
+  .ville-row:last-child{margin-bottom:0;}
+  .ville-row input{
+    background:var(--bg-input); border:1px solid var(--hairline); border-radius:10px;
+    color:var(--text-hi); font-family:'Space Grotesk', sans-serif; font-size:14px;
+    padding:11px 13px; width:100%; outline:none; transition:border-color .15s;
+  }
+  .ville-row input:focus{border-color:var(--live);}
+  .ville-row input::placeholder{color:var(--text-lo); opacity:.7;}
+  .ville-row input.alt-input{
+    font-family:'IBM Plex Mono', monospace; font-size:13px;
+  }
+
+  .row-label{
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--text-lo);
+    margin:2px 0 6px 2px; display:flex; justify-content:space-between;
+  }
+
+  .site-cible-toggle{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-lo);
+    background:none; border:none; cursor:pointer; padding:0; margin-top:14px;
+    text-decoration:underline; text-underline-offset:2px; opacity:.8;
+  }
+  .site-cible-toggle:hover{opacity:1; color:var(--text-hi);}
+  .site-cible-wrap{display:none; margin-top:10px;}
+  .site-cible-wrap.open{display:block;}
+  .site-cible-wrap input{
+    background:var(--bg-input); border:1px solid var(--hairline); border-radius:10px;
+    color:var(--text-hi); font-family:'IBM Plex Mono', monospace; font-size:12.5px;
+    padding:9px 12px; width:100%; outline:none;
+  }
+  .site-cible-wrap input:focus{border-color:var(--live);}
+
+  .error-msg{
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--danger);
+    margin-top:12px; display:none;
+  }
+  .error-msg.show{display:block;}
+
+  .launch-btn{
+    width:100%; margin-top:18px;
+    background:var(--live); color:#0b1622; border:none; border-radius:12px;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:16px;
+    padding:15px; cursor:pointer; transition:filter .15s, transform .1s;
+  }
+  .launch-btn:hover{filter:brightness(1.08);}
+  .launch-btn:active{transform:scale(.98);}
+
+  .link-preview-panel{display:none;}
+  .link-preview-panel.show{display:block;}
+  .link-preview-row{display:flex; gap:8px;}
+  .link-preview-row input{
+    flex:1; background:var(--bg-input); border:1px solid var(--hairline); border-radius:10px;
+    color:var(--text-lo); font-family:'IBM Plex Mono', monospace; font-size:11.5px;
+    padding:10px 12px; outline:none;
+  }
+  .copy-btn{
+    background:var(--bg-card); color:var(--text-hi); border:1px solid var(--hairline);
+    border-radius:10px; font-family:'IBM Plex Mono', monospace; font-size:12px;
+    padding:0 16px; cursor:pointer; white-space:nowrap; transition:border-color .15s;
+  }
+  .copy-btn:hover{border-color:var(--live);}
+
+  footer{
+    font-family:'IBM Plex Mono', monospace; font-size:11px;
+    color:var(--text-lo); text-align:center; line-height:1.7; opacity:.7;
+  }
+  footer a{color:var(--text-lo);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow"><span class="pulse"></span>lanceur — accès rapide</div>
+    <h1>Comparer jusqu'à 5 villes</h1>
+    <div class="subtitle">Saisis les villes (et une altitude optionnelle, en mètres, pour un point précis comme une station de ski), puis lance directement la comparaison — sans manipuler d'URL.</div>
+  </header>
+
+  <form id="launch-form" autocomplete="off">
+    <div class="panel">
+      <div class="panel-title">Villes à comparer</div>
+      <div id="villes-rows"></div>
+      <div class="error-msg" id="error-msg">Saisis au moins une ville.</div>
+    </div>
+
+    <button type="submit" class="launch-btn">🚀 Lancer la comparaison</button>
+
+    <button type="button" class="site-cible-toggle" id="site-cible-toggle">⚙ Site cible</button>
+    <div class="site-cible-wrap" id="site-cible-wrap">
+      <input type="text" id="site-cible-input" value="https://fef73.github.io/comparateur-temperatures/">
+    </div>
+  </form>
+
+  <div class="panel link-preview-panel" id="link-preview-panel">
+    <div class="panel-title">Lien généré</div>
+    <div class="link-preview-row">
+      <input type="text" id="link-preview-input" readonly>
+      <button type="button" class="copy-btn" id="copy-link-btn">🔗 Copier</button>
+    </div>
+  </div>
+
+  <footer>
+    Génère une URL <code>?ville=...</code> pour le comparateur de températures · rien n'est envoyé nulle part, tout se passe dans ton navigateur<br>
+    Les villes saisies sont mémorisées sur cet appareil pour la prochaine fois
+  </footer>
+
+</div>
+
+<script>
+const STORAGE_KEY = "lanceur-api-villes-v1";
+const SITE_KEY = "lanceur-api-site-v1";
+const NB_VILLES = 5;
+const DEFAULT_SITE = "https://fef73.github.io/comparateur-temperatures/";
+
+const rowsEl = document.getElementById("villes-rows");
+const errorEl = document.getElementById("error-msg");
+const siteInput = document.getElementById("site-cible-input");
+const siteToggle = document.getElementById("site-cible-toggle");
+const siteWrap = document.getElementById("site-cible-wrap");
+const linkPanel = document.getElementById("link-preview-panel");
+const linkInput = document.getElementById("link-preview-input");
+const copyBtn = document.getElementById("copy-link-btn");
+
+function loadSaved(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){
+    return [];
+  }
+}
+
+function saveEntries(entries){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); }catch(e){}
+}
+
+function loadSite(){
+  try{ return localStorage.getItem(SITE_KEY) || DEFAULT_SITE; }catch(e){ return DEFAULT_SITE; }
+}
+
+function saveSite(url){
+  try{ localStorage.setItem(SITE_KEY, url); }catch(e){}
+}
+
+// ---- Construction des 5 lignes de saisie ----
+const saved = loadSaved();
+for(let i = 0; i < NB_VILLES; i++){
+  const entry = saved[i] || { ville: "", alt: "" };
+  const row = document.createElement("div");
+  row.className = "ville-row";
+  row.innerHTML = `
+    <input type="text" class="ville-input" placeholder="Ville ${i + 1}${i === 0 ? " (ex : Narbonne)" : ""}" value="${escapeHtml(entry.ville)}">
+    <input type="number" class="alt-input" placeholder="Altitude (m)" value="${escapeHtml(entry.alt)}">
+  `;
+  rowsEl.appendChild(row);
+}
+
+function escapeHtml(s){
+  return String(s || "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+siteInput.value = loadSite();
+
+siteToggle.addEventListener("click", () => {
+  siteWrap.classList.toggle("open");
+});
+
+function collectEntries(){
+  const villeInputs = rowsEl.querySelectorAll(".ville-input");
+  const altInputs = rowsEl.querySelectorAll(".alt-input");
+  const entries = [];
+  villeInputs.forEach((input, i) => {
+    const ville = input.value.trim();
+    const alt = altInputs[i].value.trim();
+    entries.push({ ville, alt });
+  });
+  return entries;
+}
+
+function buildVilleParam(entries){
+  return entries
+    .filter(e => e.ville)
+    .map(e => {
+      const alt = e.alt !== "" && !isNaN(parseFloat(e.alt)) ? parseFloat(e.alt) : null;
+      return alt !== null ? `${e.ville},${alt}` : e.ville;
+    })
+    .join(";");
+}
+
+function normalizeSiteUrl(raw){
+  let url = raw.trim();
+  if(!url) url = DEFAULT_SITE;
+  if(!/^https?:\/\//i.test(url)) url = "https://" + url;
+  return url;
+}
+
+document.getElementById("launch-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  errorEl.classList.remove("show");
+
+  const entries = collectEntries();
+  const villeParam = buildVilleParam(entries);
+
+  if(!villeParam){
+    errorEl.classList.add("show");
+    return;
+  }
+
+  saveEntries(entries);
+  const siteUrl = normalizeSiteUrl(siteInput.value);
+  saveSite(siteUrl);
+
+  const url = new URL(siteUrl);
+  url.searchParams.set("ville", villeParam);
+
+  linkInput.value = url.toString();
+  linkPanel.classList.add("show");
+
+  window.location.href = url.toString();
+});
+
+copyBtn.addEventListener("click", () => {
+  linkInput.select();
+  const showCopied = () => {
+    const original = copyBtn.textContent;
+    copyBtn.textContent = "✓ Copié";
+    setTimeout(() => { copyBtn.textContent = original; }, 1600);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(linkInput.value).then(showCopied).catch(() => {});
+  }else{
+    try{ document.execCommand("copy"); showCopied(); }catch(e){}
+  }
+});
+</script>
+</body>
+</html>
